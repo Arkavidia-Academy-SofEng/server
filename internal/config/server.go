@@ -6,6 +6,7 @@ import (
 	authRepository "ProjectGolang/internal/api/auth/repository"
 	authService "ProjectGolang/internal/api/auth/service"
 	"ProjectGolang/internal/middleware"
+	"ProjectGolang/pkg/s3"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -17,10 +18,11 @@ import (
 
 type Server struct {
 	engine     *fiber.App
-	db         *sqlx.DB
+	DB         *sqlx.DB
 	log        *logrus.Logger
 	middleware middleware.Middleware
 	validator  *validator.Validate
+	s3         s3.ItfS3
 	handlers   []handler
 }
 
@@ -29,18 +31,25 @@ type handler interface {
 }
 
 func NewServer(fiberApp *fiber.App, log *logrus.Logger, validator *validator.Validate) (*Server, error) {
-	db, err := postgres.NewPostgresConnection()
+	DB, err := postgres.NewPostgresConnection()
 	if err != nil {
 		log.Errorf("Failed to connect to database: %v", err)
 		return nil, err
 	}
 
+	objectDB, err := s3.New()
+	if err != nil {
+		log.Errorf("Failed to connect to S3: %v", err)
+		return nil, err
+	}
+
 	bootstrap := &Server{
 		engine:     fiberApp,
-		db:         db,
+		DB:         DB,
 		log:        log,
 		validator:  validator,
 		middleware: middleware.New(log),
+		s3:         objectDB,
 	}
 
 	return bootstrap, nil
@@ -48,7 +57,7 @@ func NewServer(fiberApp *fiber.App, log *logrus.Logger, validator *validator.Val
 
 func (s *Server) RegisterHandler() {
 	//Auth Domain
-	authRepo := authRepository.New(s.db, s.log)
+	authRepo := authRepository.New(s.DB, s.log)
 	authServices := authService.New(authRepo, s.log)
 	authHandlers := authHandler.New(authServices, s.validator, s.middleware, s.log)
 

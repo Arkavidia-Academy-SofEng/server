@@ -16,7 +16,7 @@ import (
 func NewFiber(logger *logrus.Logger) *fiber.App {
 	app := fiber.New(
 		fiber.Config{
-			AppName:           "Radiance Backend",
+			AppName:           "Arkavidia Backend",
 			BodyLimit:         50 * 1024 * 1024,
 			DisableKeepalive:  true,
 			StrictRouting:     true,
