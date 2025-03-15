@@ -2,7 +2,6 @@ package authHandler
 
 import (
 	"ProjectGolang/internal/api/auth"
-	jwtPkg "ProjectGolang/pkg/jwt"
 	"ProjectGolang/pkg/log"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
@@ -10,18 +9,18 @@ import (
 	"time"
 )
 
-func (h *AuthHandler) HandleRegister(ctx *fiber.Ctx) error {
+func (h *AuthHandler) CreateUser(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	h.log.WithField("path", ctx.Path()).Debug("Processing registration request")
+	h.log.WithField("path", ctx.Path()).Debug("Processing user creation request")
 
-	var req auth.CreateUserRequest
+	var req auth.CreateUser
 	if err := ctx.BodyParser(&req); err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
 			"path":  ctx.Path(),
-		}).Error("Failed to parse registration request body")
+		}).Error("Failed to parse user creation request body")
 		return err
 	}
 
@@ -29,47 +28,35 @@ func (h *AuthHandler) HandleRegister(ctx *fiber.Ctx) error {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
 			"email": req.Email,
-		}).Warn("Validation failed for user registration")
+		}).Warn("Validation failed for user creation")
 		return err
 	}
 
-	requestLog := req
-	requestLog.Password = "[REDACTED]"
-
-	h.log.WithFields(log.Fields{
-		"username": req.Username,
-		"email":    req.Email,
-	}).Info("Processing user registration request")
-
-	if err := h.authService.RegisterUser(c, req); err != nil {
+	newUser, err := h.authService.CreateUser(c, req)
+	if err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
 			"email": req.Email,
-		}).Error("User registration failed")
+		}).Error("User creation failed")
 		return err
 	}
-
-	h.log.WithFields(log.Fields{
-		"email":    req.Email,
-		"username": req.Username,
-	}).Info("User registered successfully")
 
 	select {
 	case <-c.Done():
 		return ctx.Status(fiber.StatusRequestTimeout).
 			JSON(utils.StatusMessage(fiber.StatusRequestTimeout))
 	default:
-		return ctx.SendStatus(fiber.StatusCreated)
+		return ctx.Status(fiber.StatusCreated).JSON(newUser)
 	}
 }
 
-func (h *AuthHandler) HandleLogin(ctx *fiber.Ctx) error {
+func (h *AuthHandler) Login(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	h.log.WithField("path", ctx.Path()).Debug("Processing login request")
 
-	var req auth.LoginUserRequest
+	var req auth.LoginRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -82,44 +69,44 @@ func (h *AuthHandler) HandleLogin(ctx *fiber.Ctx) error {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
 			"email": req.Email,
-		}).Warn("Validation failed for user login")
+		}).Warn("Validation failed for login request")
 		return err
 	}
 
-	h.log.WithFields(log.Fields{
-		"email": req.Email,
-	}).Debug("Attempting user login")
-
-	res, err := h.authService.Login(ctx.Context(), req)
+	loginResponse, err := h.authService.Login(c, req)
 	if err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
 			"email": req.Email,
-		}).Error("User login failed")
+		}).Error("Login failed")
 		return err
 	}
-
-	h.log.WithFields(log.Fields{
-		"email":                 req.Email,
-		"token_expires_minutes": res.ExpiresInMinutes,
-	}).Info("User logged in successfully")
 
 	select {
 	case <-c.Done():
 		return ctx.Status(fiber.StatusRequestTimeout).
 			JSON(utils.StatusMessage(fiber.StatusRequestTimeout))
 	default:
-		return ctx.Status(fiber.StatusOK).JSON(res)
+		return ctx.Status(fiber.StatusOK).JSON(loginResponse)
 	}
 }
 
-func (h *AuthHandler) HandleUpdateUser(ctx *fiber.Ctx) error {
+func (h *AuthHandler) UpdateUser(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	h.log.WithField("path", ctx.Path()).Debug("Processing user update request")
 
-	var req auth.UpdateUserRequest
+	// Get ID from URL parameters
+	id := ctx.Params("id")
+	if id == "" {
+		h.log.WithFields(log.Fields{
+			"path": ctx.Path(),
+		}).Error("Missing user ID in URL")
+		return fiber.NewError(fiber.StatusBadRequest, "User ID is required")
+	}
+
+	var req auth.UpdateUser
 	if err := ctx.BodyParser(&req); err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -128,74 +115,63 @@ func (h *AuthHandler) HandleUpdateUser(ctx *fiber.Ctx) error {
 		return err
 	}
 
+	// Set the ID from URL parameter
+	req.ID = id
+
 	if err := h.validator.Struct(&req); err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
+			"id":    req.ID,
 		}).Warn("Validation failed for user update")
 		return err
 	}
 
-	userData, err := jwtPkg.GetUserLoginData(ctx)
+	updatedUser, err := h.authService.UpdateUser(c, req)
 	if err != nil {
 		h.log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Error("Failed to get user data from token")
+			"id":    req.ID,
+		}).Error("User update failed")
 		return err
 	}
-
-	h.log.WithFields(log.Fields{
-		"user_id":  userData.ID,
-		"username": userData.Username,
-	}).Debug("Updating user")
-
-	if err := h.authService.UpdateUser(ctx.Context(), userData, req); err != nil {
-		h.log.WithFields(log.Fields{
-			"error":   err.Error(),
-			"user_id": userData.ID,
-		}).Error("Error updating user")
-		return err
-	}
-
-	h.log.WithFields(log.Fields{
-		"user_id": userData.ID,
-	}).Info("User updated successfully")
 
 	select {
 	case <-c.Done():
 		return ctx.Status(fiber.StatusRequestTimeout).
 			JSON(utils.StatusMessage(fiber.StatusRequestTimeout))
 	default:
-		return ctx.SendStatus(fiber.StatusOK)
+		return ctx.Status(fiber.StatusOK).JSON(updatedUser)
 	}
 }
 
-func (h *AuthHandler) HandleDeleteUser(ctx *fiber.Ctx) error {
+func (h *AuthHandler) DeleteUser(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	id := ctx.Params("id")
-	h.log.WithFields(log.Fields{
-		"user_id": id,
-		"path":    ctx.Path(),
-	}).Debug("Processing user deletion request")
+	h.log.WithField("path", ctx.Path()).Debug("Processing user deletion request")
 
-	if err := h.authService.DeleteUser(ctx.Context(), id); err != nil {
+	// Get ID from URL parameters
+	id := ctx.Params("id")
+	if id == "" {
 		h.log.WithFields(log.Fields{
-			"error":   err.Error(),
-			"user_id": id,
-		}).Error("Failed to delete user")
-		return err
+			"path": ctx.Path(),
+		}).Error("Missing user ID in URL")
+		return fiber.NewError(fiber.StatusBadRequest, "User ID is required")
 	}
 
-	h.log.WithFields(log.Fields{
-		"user_id": id,
-	}).Info("User deleted successfully")
+	if err := h.authService.DeleteUser(c, id); err != nil {
+		h.log.WithFields(log.Fields{
+			"error": err.Error(),
+			"id":    id,
+		}).Error("User deletion failed")
+		return err
+	}
 
 	select {
 	case <-c.Done():
 		return ctx.Status(fiber.StatusRequestTimeout).
 			JSON(utils.StatusMessage(fiber.StatusRequestTimeout))
 	default:
-		return ctx.SendStatus(fiber.StatusOK)
+		return ctx.SendStatus(fiber.StatusNoContent)
 	}
 }

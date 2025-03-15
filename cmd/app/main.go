@@ -4,6 +4,9 @@ import (
 	"ProjectGolang/internal/config"
 	"ProjectGolang/pkg/log"
 	"github.com/joho/godotenv"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -21,7 +24,17 @@ func main() {
 
 	rest.RegisterHandler()
 
-	if err := rest.Run(); err != nil {
-		logger.Fatal(err)
-	}
+	go func() {
+		if err := rest.Run(); err != nil {
+			logger.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server...")
+	rest.Shutdown()
+	logger.Info("Server shutdown complete")
 }

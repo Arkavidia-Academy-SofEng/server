@@ -7,6 +7,7 @@ import (
 	authService "ProjectGolang/internal/api/auth/service"
 	"ProjectGolang/internal/middleware"
 	"ProjectGolang/pkg/s3"
+	"ProjectGolang/pkg/scheduler"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -23,6 +24,7 @@ type Server struct {
 	middleware middleware.Middleware
 	validator  *validator.Validate
 	s3         s3.ItfS3
+	scheduler  *scheduler.Scheduler
 	handlers   []handler
 }
 
@@ -60,9 +62,13 @@ func (s *Server) RegisterHandler() {
 	authRepo := authRepository.New(s.DB, s.log)
 	authServices := authService.New(authRepo, s.log)
 	authHandlers := authHandler.New(authServices, s.validator, s.middleware, s.log)
+	timeScheduler := scheduler.NewScheduler(authRepo, s.log)
 
 	//Another Domain
 
+	timeScheduler.Start()
+	s.scheduler = timeScheduler
+	s.log.Info("Scheduler started successfully")
 	s.checkHealth()
 	s.handlers = append(s.handlers, authHandlers)
 }
@@ -96,4 +102,31 @@ func (s *Server) checkHealth() {
 			"message": "Server is Healthy!",
 		})
 	})
+}
+
+func (s *Server) Shutdown() {
+	// Stop the scheduler
+	if s.scheduler != nil {
+		s.scheduler.Stop()
+		s.log.Info("Scheduler stopped")
+	}
+
+	// Close database connections
+	if s.DB != nil {
+		err := s.DB.Close()
+		if err != nil {
+			return
+		}
+
+		s.log.Info("Database connection closed")
+	}
+
+	// Shutdown fiber app
+	if s.engine != nil {
+		err := s.engine.Shutdown()
+		if err != nil {
+			return
+		}
+		s.log.Info("Fiber app shutdown")
+	}
 }

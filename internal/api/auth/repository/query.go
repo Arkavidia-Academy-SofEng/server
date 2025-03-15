@@ -2,26 +2,52 @@ package authRepository
 
 const (
 	queryCreateUser = `
-INSERT INTO Users (id, email, username, password)
-VALUES (:id, :email, :username, :password)`
+    INSERT INTO users (
+        id, email, password, name, role, profile_picture, 
+        is_premium, premium_until, headline, created_at, updated_at
+    ) VALUES (
+        :id, :email, :password, :name, :role, :profile_picture, 
+        :is_premium, :premium_until, :headline, :created_at, :updated_at
+    )`
 
-	queryGetById = `
-SELECT id, username, email, password
-FROM Users 
-WHERE id = :id`
+	queryCheckEmailExists = `
+    SELECT EXISTS (SELECT 1 FROM users WHERE email = ? AND deleted_at IS NULL)
+    `
 
-	queryGetByEmail = `
-SELECT id, email, username, password
-FROM Users
-WHERE email = :email
-LIMIT 1`
+	queryGetUserByID = `
+    SELECT id, email, password, name, role, profile_picture, 
+           is_premium, premium_until, headline, created_at, updated_at, deleted_at
+    FROM users
+    WHERE id = ? AND deleted_at IS NULL
+    `
 
 	queryUpdateUser = `
-UPDATE Users 
-SET username = :username, password = :password 
-WHERE id = :id`
+    UPDATE users
+    SET name = :name,
+        role = :role,
+        profile_picture = :profile_picture,
+        is_premium = :is_premium,
+        premium_until = :premium_until,
+        headline = :headline,
+        updated_at = :updated_at
+    WHERE id = :id
+    `
 
-	queryDeleteUser = `
-DELETE FROM Users
-WHERE id = :id`
+	queryGetUserByEmail = `
+    SELECT id, email, password, name, role, profile_picture, 
+           is_premium, premium_until, headline, created_at, updated_at, deleted_at
+    FROM users
+    WHERE email = ? AND deleted_at IS NULL
+    `
+
+	querySoftDeleteUser = `
+    UPDATE users
+    SET deleted_at = ?
+    WHERE id = ? AND deleted_at IS NULL
+    `
+
+	queryHardDeleteExpiredUsers = `
+    DELETE FROM users
+    WHERE deleted_at IS NOT NULL AND deleted_at <= ?
+    `
 )

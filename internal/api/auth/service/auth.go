@@ -5,112 +5,128 @@ import (
 	"ProjectGolang/internal/entity"
 	"ProjectGolang/pkg/bcrypt"
 	jwtPkg "ProjectGolang/pkg/jwt"
-	"ProjectGolang/pkg/response"
 	"context"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"time"
 )
 
-func (s *authService) RegisterUser(c context.Context, req auth.CreateUserRequest) error {
-	s.log.WithFields(logrus.Fields{
-		"email":    req.Email,
-		"username": req.Username,
-	}).Debug("Starting user registration process")
-
+func (s *authService) CreateUser(c context.Context, req auth.CreateUser) (auth.UserResponse, error) {
 	repo, err := s.authrepository.NewClient(false)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Error("Failed to create repository client")
-		return err
+		return auth.UserResponse{}, err
 	}
 
-	s.log.Debug("Hashing password")
+	// Check if email already exists
+	exists, err := repo.Users.CheckEmailExists(c, req.Email)
+	if err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"email": req.Email,
+		}).Error("Failed to check if email exists")
+		return auth.UserResponse{}, err
+	}
+
+	if exists {
+		s.log.WithFields(logrus.Fields{
+			"email": req.Email,
+		}).Warn("Email already exists")
+		return auth.UserResponse{}, auth.ErrorEmailAlreadyExists
+	}
+
+	// Hash the password
 	hashedPassword, err := bcrypt.HashPassword(req.Password)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Error("Failed to hash password")
-		return err
+		return auth.UserResponse{}, err
 	}
 
-	s.log.Debug("Generating ULID for new user")
-	ulid, err := NewUlidFromTimestamp(time.Now())
-	if err != nil {
+	now := time.Now()
+	newUser := entity.User{
+		ID:             uuid.New().String(),
+		Email:          req.Email,
+		Password:       hashedPassword,
+		Name:           req.Name,
+		Role:           req.Role,
+		ProfilePicture: req.ProfilePicture,
+		IsPremium:      req.IsPremium,
+		PremiumUntil:   req.PremiumUntil,
+		Headline:       req.Headline,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	if err := repo.Users.CreateUser(c, newUser); err != nil {
 		s.log.WithFields(logrus.Fields{
 			"error": err.Error(),
-		}).Error("Failed to generate ULID")
-		return err
+			"email": req.Email,
+		}).Error("Failed to create user")
+		return auth.UserResponse{}, err
 	}
 
-	user := entity.User{
-		ID:       ulid,
-		Username: req.Username,
-		Email:    req.Email,
-		Password: hashedPassword,
-	}
-
-	s.log.WithFields(logrus.Fields{
-		"user_id":  ulid,
-		"username": req.Username,
-		"email":    req.Email,
-	}).Info("Creating new user in database")
-
-	if err := repo.Users.CreateUser(c, user); err != nil {
-		s.log.WithFields(logrus.Fields{
-			"error":    err.Error(),
-			"user_id":  ulid,
-			"username": req.Username,
-			"email":    req.Email,
-		}).Error("Failed to create user in database")
-		return err
+	response := auth.UserResponse{
+		ID:             newUser.ID,
+		Email:          newUser.Email,
+		Name:           newUser.Name,
+		Role:           newUser.Role,
+		ProfilePicture: newUser.ProfilePicture,
+		IsPremium:      newUser.IsPremium,
+		PremiumUntil:   newUser.PremiumUntil,
+		Headline:       newUser.Headline,
+		CreatedAt:      newUser.CreatedAt,
+		UpdatedAt:      newUser.UpdatedAt,
 	}
 
 	s.log.WithFields(logrus.Fields{
-		"user_id":  ulid,
-		"username": req.Username,
-		"email":    req.Email,
+		"id":    newUser.ID,
+		"email": newUser.Email,
+		"name":  newUser.Name,
+		"role":  newUser.Role,
 	}).Info("User created successfully")
 
-	return nil
+	return response, nil
 }
 
-func (s *authService) Login(c context.Context, req auth.LoginUserRequest) (auth.LoginUserResponse, error) {
-	s.log.WithFields(logrus.Fields{
-		"email": req.Email,
-	}).Debug("Processing login request")
-
+func (s *authService) Login(c context.Context, req auth.LoginRequest) (auth.LoginResponse, error) {
 	repo, err := s.authrepository.NewClient(false)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
 			"error": err.Error(),
-		}).Error("Failed to create repository client for login")
-		return auth.LoginUserResponse{}, err
+		}).Error("Failed to create repository client")
+		return auth.LoginResponse{}, err
 	}
 
-	user, err := repo.Users.GetByEmail(c, req.Email)
+	foundUser, err := repo.Users.GetUserByEmail(c, req.Email)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
 			"error": err.Error(),
 			"email": req.Email,
-		}).Warn("User not found or database error during login")
-		return auth.LoginUserResponse{}, err
+		}).Error("Failed to get user by email")
+		return auth.LoginResponse{}, err
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"user_id": user.ID,
-		"email":   req.Email,
-	}).Debug("User found, comparing passwords")
-
-	if err := bcrypt.ComparePassword(user.Password, req.Password); err != nil {
+	if foundUser.ID == "" {
 		s.log.WithFields(logrus.Fields{
-			"user_id": user.ID,
-			"email":   req.Email,
-		}).Warn("Invalid password during login")
-		return auth.LoginUserResponse{}, response.New(401, "Invalid email or password")
+			"email": req.Email,
+		}).Warn("User not found")
+		return auth.LoginResponse{}, auth.ErrorInvalidCredentials
 	}
 
-	userData := MakeUserData(user)
+	err = bcrypt.ComparePassword(foundUser.Password, req.Password)
+	if err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"email": req.Email,
+		}).Warn("Invalid password")
+		return auth.LoginResponse{}, auth.ErrorInvalidCredentials
+	}
+
+	userData := MakeUserData(foundUser)
 	s.log.WithFields(logrus.Fields{
 		"user_id":  userData["id"],
 		"username": userData["Username"],
@@ -122,108 +138,127 @@ func (s *authService) Login(c context.Context, req auth.LoginUserRequest) (auth.
 			"error":   err.Error(),
 			"user_id": userData["id"],
 		}).Error("Error signing JWT token")
-		return auth.LoginUserResponse{}, err
+		return auth.LoginResponse{}, err
+	}
+
+	loginResponse := auth.LoginResponse{
+		Token:     token,
+		ExpiresAt: expired,
 	}
 
 	s.log.WithFields(logrus.Fields{
-		"user_id": userData["id"],
-		"expires": expired,
-	}).Info("Login successful, token created")
+		"id":    foundUser.ID,
+		"email": foundUser.Email,
+		"name":  foundUser.Name,
+	}).Info("User logged in successfully")
 
-	res := auth.LoginUserResponse{
-		AccessToken:      token,
-		ExpiresInMinutes: time.Until(time.Unix(expired, 0)).Minutes(),
-	}
-
-	return res, nil
+	return loginResponse, nil
 }
 
-func (s *authService) UpdateUser(c context.Context, user entity.UserLoginData, req auth.UpdateUserRequest) error {
-	s.log.WithFields(logrus.Fields{
-		"user_id": user.ID,
-	}).Debug("Processing user update request")
-
+func (s *authService) UpdateUser(c context.Context, req auth.UpdateUser) (auth.UserResponse, error) {
 	repo, err := s.authrepository.NewClient(false)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": user.ID,
-		}).Error("Failed to create repository client for update")
-		return err
+			"error": err.Error(),
+		}).Error("Failed to create repository client")
+		return auth.UserResponse{}, err
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"user_id": user.ID,
-	}).Debug("Retrieving current user data")
-
-	userData, err := repo.Users.GetByID(c, user.ID)
+	// Check if user exists
+	existingUser, err := repo.Users.GetUserByID(c, req.ID)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": user.ID,
-		}).Error("Failed to retrieve user data for update")
-		return err
+			"error": err.Error(),
+			"id":    req.ID,
+		}).Error("Failed to get user by ID")
+		return auth.UserResponse{}, err
 	}
 
-	s.log.Debug("Calculating user data differences")
-	newUser, err := GetUserDifferenceData(userData, req)
-	if err != nil {
+	if existingUser.ID == "" {
 		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": user.ID,
-		}).Error("Failed to process user data differences")
-		return err
+			"id": req.ID,
+		}).Warn("User not found")
+		return auth.UserResponse{}, auth.ErrorUserNotFound
+	}
+
+	// Update user fields
+	updatedUser := existingUser
+	updatedUser.Name = req.Name
+	updatedUser.Role = req.Role
+	updatedUser.ProfilePicture = req.ProfilePicture
+	updatedUser.IsPremium = req.IsPremium
+	updatedUser.PremiumUntil = req.PremiumUntil
+	updatedUser.Headline = req.Headline
+	updatedUser.UpdatedAt = time.Now()
+
+	if err := repo.Users.UpdateUser(c, updatedUser); err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"id":    req.ID,
+		}).Error("Failed to update user")
+		return auth.UserResponse{}, err
+	}
+
+	// Create response (excluding password)
+	response := auth.UserResponse{
+		ID:             updatedUser.ID,
+		Email:          updatedUser.Email,
+		Name:           updatedUser.Name,
+		Role:           updatedUser.Role,
+		ProfilePicture: updatedUser.ProfilePicture,
+		IsPremium:      updatedUser.IsPremium,
+		PremiumUntil:   updatedUser.PremiumUntil,
+		Headline:       updatedUser.Headline,
+		CreatedAt:      updatedUser.CreatedAt,
+		UpdatedAt:      updatedUser.UpdatedAt,
 	}
 
 	s.log.WithFields(logrus.Fields{
-		"user_id":  user.ID,
-		"username": newUser.Username,
-	}).Info("Updating user in database")
-
-	if err := repo.Users.UpdateUser(c, newUser, userData.ID); err != nil {
-		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": user.ID,
-		}).Error("Failed to update user in database")
-		return err
-	}
-
-	s.log.WithFields(logrus.Fields{
-		"user_id": user.ID,
+		"id":    updatedUser.ID,
+		"email": updatedUser.Email,
+		"name":  updatedUser.Name,
 	}).Info("User updated successfully")
 
-	return nil
+	return response, nil
 }
-
 func (s *authService) DeleteUser(c context.Context, id string) error {
-	s.log.WithFields(logrus.Fields{
-		"user_id": id,
-	}).Debug("Processing user deletion request")
-
 	repo, err := s.authrepository.NewClient(false)
 	if err != nil {
 		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": id,
-		}).Error("Failed to create repository client for deletion")
+			"error": err.Error(),
+		}).Error("Failed to create repository client")
 		return err
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"user_id": id,
-	}).Info("Deleting user from database")
-
-	if err := repo.Users.DeleteUser(c, id); err != nil {
+	existingUser, err := repo.Users.GetUserByID(c, id)
+	if err != nil {
 		s.log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"user_id": id,
-		}).Error("Failed to delete user from database")
+			"error": err.Error(),
+			"id":    id,
+		}).Error("Failed to get user by ID")
+		return err
+	}
+
+	if existingUser.ID == "" {
+		s.log.WithFields(logrus.Fields{
+			"id": id,
+		}).Warn("User not found")
+		return auth.ErrorUserNotFound
+	}
+
+	now := time.Now()
+	if err := repo.Users.SoftDeleteUser(c, id, now); err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"id":    id,
+		}).Error("Failed to soft delete user")
 		return err
 	}
 
 	s.log.WithFields(logrus.Fields{
-		"user_id": id,
-	}).Info("User deleted successfully")
+		"id":    id,
+		"email": existingUser.Email,
+	}).Info("User soft deleted successfully")
 
 	return nil
 }

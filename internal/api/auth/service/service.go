@@ -3,7 +3,6 @@ package authService
 import (
 	"ProjectGolang/internal/api/auth"
 	authRepository "ProjectGolang/internal/api/auth/repository"
-	"ProjectGolang/internal/entity"
 	"context"
 	"github.com/sirupsen/logrus"
 )
@@ -14,10 +13,10 @@ type authService struct {
 }
 
 type AuthService interface {
-	RegisterUser(ctx context.Context, req auth.CreateUserRequest) error
-	Login(ctx context.Context, req auth.LoginUserRequest) (auth.LoginUserResponse, error)
-	UpdateUser(ctx context.Context, user entity.UserLoginData, req auth.UpdateUserRequest) error
-	DeleteUser(ctx context.Context, id string) error
+	CreateUser(c context.Context, req auth.CreateUser) (auth.UserResponse, error)
+	Login(c context.Context, req auth.LoginRequest) (auth.LoginResponse, error)
+	UpdateUser(c context.Context, req auth.UpdateUser) (auth.UserResponse, error)
+	DeleteUser(c context.Context, id string) error
 }
 
 func New(authRepo authRepository.Repository, log *logrus.Logger) AuthService {

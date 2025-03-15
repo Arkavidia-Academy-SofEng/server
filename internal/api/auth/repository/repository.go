@@ -5,6 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"time"
 )
 
 func New(db *sqlx.DB, log *logrus.Logger) Repository {
@@ -71,11 +72,13 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 
 type Client struct {
 	Users interface {
-		CreateUser(ctx context.Context, user entity.User) error
-		GetByID(ctx context.Context, id string) (entity.User, error)
-		GetByEmail(ctx context.Context, email string) (entity.User, error)
-		UpdateUser(ctx context.Context, user entity.User, id string) error
-		DeleteUser(ctx context.Context, id string) error
+		CreateUser(c context.Context, user entity.User) error
+		GetUserByID(c context.Context, id string) (entity.User, error)
+		GetUserByEmail(c context.Context, email string) (entity.User, error)
+		UpdateUser(c context.Context, user entity.User) error
+		CheckEmailExists(c context.Context, email string) (bool, error)
+		SoftDeleteUser(c context.Context, id string, deletedAt time.Time) error
+		HardDeleteExpiredUsers(c context.Context, threshold time.Time) error
 	}
 
 	Commit   func() error
@@ -83,16 +86,6 @@ type Client struct {
 }
 
 type userRepository struct {
-	q   sqlx.ExtContext
-	log *logrus.Logger
-}
-
-type sessionRepository struct {
-	q   sqlx.ExtContext
-	log *logrus.Logger
-}
-
-type userOauthRepository struct {
 	q   sqlx.ExtContext
 	log *logrus.Logger
 }

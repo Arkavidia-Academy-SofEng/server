@@ -12,12 +12,12 @@ import (
 	"time"
 )
 
-func Sign(Data map[string]interface{}, ExpiredAt time.Duration) (string, int64, error) {
-	expiredAt := time.Now().Add(ExpiredAt).Unix()
+func Sign(Data map[string]interface{}, ExpiredAt time.Duration) (string, time.Time, error) {
+	expiredAt := time.Now().Add(ExpiredAt)
 
 	JWTSecretKey := os.Getenv("JWT_ACCESS_TOKEN_SECRET")
 	if JWTSecretKey == "" {
-		return "", 0, fmt.Errorf("JWT_ACCESS_TOKEN_SECRET not set")
+		return "", time.Time{}, fmt.Errorf("JWT_ACCESS_TOKEN_SECRET not set")
 	}
 
 	claims := jwt.MapClaims{}
@@ -34,7 +34,7 @@ func Sign(Data map[string]interface{}, ExpiredAt time.Duration) (string, int64, 
 	accessToken, err := to.SignedString([]byte(JWTSecretKey))
 	if err != nil {
 		logrus.WithError(err).Error("Failed to sign token")
-		return "", 0, err
+		return "", time.Time{}, err
 	}
 
 	return accessToken, expiredAt, nil

@@ -1,24 +1,31 @@
 package entity
 
+import (
+	"time"
+)
+
+type UserRole string
+
+const (
+	RoleAdmin     UserRole = "admin"
+	RoleRecruiter UserRole = "recruiter"
+	RoleCandidate UserRole = "candidate"
+)
+
 type User struct {
 	ID             string
 	Email          string
 	Password       string
 	Name           string
-	Role           userRole
+	Role           UserRole
 	ProfilePicture string
-	headline       string
-	createdAt      string
-	updatedAt      string
+	IsPremium      bool
+	PremiumUntil   time.Time
+	Headline       string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
 }
-
-type userRole string
-
-const (
-	Admin     userRole = "admin"
-	Recruiter userRole = "recruiter"
-	Candidate userRole = "candidate"
-)
 
 type UserLoginData struct {
 	ID       string

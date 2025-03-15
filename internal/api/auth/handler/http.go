@@ -24,9 +24,8 @@ func New(as authService.AuthService, validate *validator.Validate, middleware mi
 	}
 }
 func (h *AuthHandler) Start(srv fiber.Router) {
-	auth := srv.Group("/auth")
-	auth.Post("/register", h.HandleRegister)
-	auth.Post("/login", h.HandleLogin)
-	auth.Patch("/update", h.middleware.NewTokenMiddleware, h.HandleUpdateUser)
-	auth.Delete("/delete/:id", h.HandleDeleteUser)
+	users := srv.Group("/users")
+	users.Post("/", h.CreateUser)
+	users.Post("/login", h.Login)
+	users.Put("/:id", h.UpdateUser)
 }

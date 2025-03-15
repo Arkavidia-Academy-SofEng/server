@@ -2,46 +2,49 @@ package auth
 
 import (
 	"ProjectGolang/internal/entity"
+	"time"
 )
 
-type CreateUserRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=32"`
-	Username string `json:"username" validate:"required,min=3,max=255"`
+type CreateUser struct {
+	Email          string          `json:"email" validate:"required,email"`
+	Password       string          `json:"password" validate:"required,min=8"`
+	Name           string          `json:"name" validate:"required"`
+	Role           entity.UserRole `json:"role" validate:"required,oneof=admin recruiter candidate"`
+	ProfilePicture string          `json:"profile_picture"`
+	IsPremium      bool            `json:"is_premium"`
+	PremiumUntil   time.Time       `json:"premium_until"`
+	Headline       string          `json:"headline"`
 }
 
-type LoginUserRequest struct {
+type UserResponse struct {
+	ID             string          `json:"id"`
+	Email          string          `json:"email"`
+	Name           string          `json:"name"`
+	Role           entity.UserRole `json:"role"`
+	ProfilePicture string          `json:"profile_picture"`
+	IsPremium      bool            `json:"is_premium"`
+	PremiumUntil   time.Time       `json:"premium_until"`
+	Headline       string          `json:"headline"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
-type SinginUserResponse struct {
-	AccessToken      string `json:"accessToken"`
-	RefreshToken     string `json:"refreshToken"`
-	ExpiresInSeconds int64  `json:"expiresInSeconds"`
-	SessionID        string `json:"sessionID"`
+type LoginResponse struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refreshToken" validate:"required"`
-}
-
-type LoginUserResponse struct {
-	AccessToken      string  `json:"accessToken"`
-	ExpiresInMinutes float64 `json:"expiresInHour"`
-}
-
-type UserClaims struct {
-	Email    string              `json:"email"`
-	ID       string              `json:"id"`
-	Provider entity.AuthProvider `json:"provider"`
-}
-
-type UpdateUserRequest struct {
-	Username string `json:"username" validate:"required,min=3,max=255"`
-	Password string `json:"password" validate:"required,min=8,max=32"`
-}
-
-type UpdateEmailUserRequest struct {
-	Email string `json:"email" validate:"required,email"`
+type UpdateUser struct {
+	ID             string          `json:"-"` // Will be set from URL parameter
+	Name           string          `json:"name" validate:"required"`
+	Role           entity.UserRole `json:"role" validate:"required,oneof=admin recruiter candidate"`
+	ProfilePicture string          `json:"profile_picture"`
+	IsPremium      bool            `json:"is_premium"`
+	PremiumUntil   time.Time       `json:"premium_until"`
+	Headline       string          `json:"headline"`
 }

@@ -1,11 +1,11 @@
 package auth
 
 import (
-	"ProjectGolang/pkg/response"
-	"net/http"
+	"fmt"
 )
 
 var (
-	ErrEmailAlreadyExists = response.New(http.StatusConflict, "email already exists")
-	ErrUserNotFound       = response.New(http.StatusNotFound, "user not found")
+	ErrorEmailAlreadyExists = fmt.Errorf("email already exists")
+	ErrorInvalidCredentials = fmt.Errorf("invalid email or password")
+	ErrorUserNotFound       = fmt.Errorf("user not found")
 )
