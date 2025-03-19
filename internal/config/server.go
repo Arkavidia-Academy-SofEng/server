@@ -5,6 +5,9 @@ import (
 	authHandler "ProjectGolang/internal/api/auth/handler"
 	authRepository "ProjectGolang/internal/api/auth/repository"
 	authService "ProjectGolang/internal/api/auth/service"
+	bioHandler "ProjectGolang/internal/api/bio/handler"
+	bioRepository "ProjectGolang/internal/api/bio/repository"
+	bioService "ProjectGolang/internal/api/bio/service"
 	"ProjectGolang/internal/middleware"
 	"ProjectGolang/pkg/redis"
 	"ProjectGolang/pkg/s3"
@@ -70,12 +73,15 @@ func (s *Server) RegisterHandler() {
 	authHandlers := authHandler.New(authServices, s.validator, s.middleware, s.log)
 	timeScheduler := scheduler.NewScheduler(authRepo, s.log)
 
-	//Another Domain
+	//Bio Domain
+	bioRepo := bioRepository.New(s.DB, s.log)
+	bioServices := bioService.New(authRepo, bioRepo, s.log, s.smtp, s.redis, s.s3)
+	bioHandlers := bioHandler.New(bioServices, s.validator, s.middleware, s.log)
 
 	timeScheduler.Start()
 	s.scheduler = timeScheduler
 	s.checkHealth()
-	s.handlers = append(s.handlers, authHandlers)
+	s.handlers = append(s.handlers, authHandlers, bioHandlers)
 }
 
 func (s *Server) Run() error {

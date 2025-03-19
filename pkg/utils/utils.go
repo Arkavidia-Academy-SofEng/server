@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"math/big"
+	"time"
 )
 
 func GenerateOTP(length int) (string, error) {
@@ -28,4 +30,16 @@ func GenerateRandomString(length int) (string, error) {
 	}
 
 	return base64.URLEncoding.EncodeToString(b)[:length], nil
+}
+
+func NewUlidFromTimestamp(time time.Time) (string, error) {
+	ms := ulid.Timestamp(time)
+	entropy := ulid.Monotonic(rand.Reader, 0)
+
+	id, err := ulid.New(ms, entropy)
+	if err != nil {
+		return "", err
+	}
+
+	return id.String(), nil
 }
