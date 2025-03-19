@@ -32,4 +32,13 @@ func (h *BioHandler) Start(srv fiber.Router) {
 	userExperiences := srv.Group("/users/:userId/experiences")
 	userExperiences.Post("/", h.middleware.NewTokenMiddleware, h.CreateExperience)
 	userExperiences.Get("/", h.GetExperiencesByUserID)
+
+	educations := srv.Group("/educations")
+	educations.Get("/:id", h.GetEducationByID)
+	educations.Put("/:id", h.middleware.NewTokenMiddleware, h.UpdateEducation)
+	educations.Delete("/:id", h.middleware.NewTokenMiddleware, h.DeleteEducation)
+
+	userEducations := srv.Group("/users/:userId/educations")
+	userEducations.Post("/", h.middleware.NewTokenMiddleware, h.CreateEducation)
+	userEducations.Get("/", h.GetEducationsByUserID)
 }

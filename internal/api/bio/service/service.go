@@ -28,6 +28,12 @@ type BioService interface {
 	GetExperiencesByUserID(ctx context.Context, userID string) ([]entity.Experience, error)
 	UpdateExperience(ctx context.Context, req bio.UpdateExperience, id string, image *multipart.FileHeader) error
 	DeleteExperience(ctx context.Context, id string) error
+
+	CreateEducation(ctx context.Context, req bio.CreateEducation, userID string, image *multipart.FileHeader) error
+	GetEducationByID(ctx context.Context, id string) (entity.Education, error)
+	GetEducationsByUserID(ctx context.Context, userID string) ([]entity.Education, error)
+	UpdateEducation(ctx context.Context, req bio.UpdateEducation, id string, image *multipart.FileHeader) error
+	DeleteEducation(ctx context.Context, id string) error
 }
 
 func New(authRepo authRepository.Repository, bioRepo bioRepository.Repository,

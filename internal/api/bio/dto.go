@@ -35,3 +35,34 @@ type UpdateExperience struct {
 	EndDate     string `form:"end_date"`
 	Description string `form:"description"`
 }
+
+type CreateEducation struct {
+	Image             string `form:"image"`
+	TitleDegree       string `form:"title_degree" validate:"required"`
+	InstitutionalName string `form:"institutional_name" validate:"required"`
+	StartDate         string `form:"start_date" validate:"required"`
+	EndDate           string `form:"end_date"`
+	Description       string `form:"description"`
+}
+
+type EducationDB struct {
+	ID                sql.NullString `db:"id"`
+	Image             sql.NullString `db:"image"`
+	UserID            sql.NullString `db:"user_id"`
+	TitleDegree       sql.NullString `db:"title_degree"`
+	InstitutionalName sql.NullString `db:"institutional_name"`
+	StartDate         sql.NullString `db:"start_date"`
+	EndDate           sql.NullString `db:"end_date"`
+	Description       sql.NullString `db:"description"`
+	CreatedAt         sql.NullTime   `db:"created_at"`
+	UpdatedAt         sql.NullTime   `db:"updated_at"`
+}
+
+type UpdateEducation struct {
+	Image             string `form:"image"`
+	TitleDegree       string `form:"title_degree"`
+	InstitutionalName string `form:"institutional_name"`
+	StartDate         string `form:"start_date"`
+	EndDate           string `form:"end_date"`
+	Description       string `form:"description"`
+}

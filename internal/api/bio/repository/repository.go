@@ -50,6 +50,7 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 
 	return Client{
 		Experience: &experienceRepository{q: db, log: r.log},
+		Education:  &educationRepository{q: db, log: r.log},
 
 		Commit: func() error {
 			if tx {
@@ -76,11 +77,25 @@ type Client struct {
 		DeleteExperiencesByUserID(ctx context.Context, userID string) error
 	}
 
+	Education interface {
+		CreateEducation(ctx context.Context, education entity.Education) error
+		GetEducationByID(ctx context.Context, id string) (entity.Education, error)
+		GetEducationsByUserID(ctx context.Context, userID string) ([]entity.Education, error)
+		UpdateEducation(ctx context.Context, education entity.Education) error
+		DeleteEducation(ctx context.Context, id string) error
+		DeleteEducationsByUserID(ctx context.Context, userID string) error
+	}
+
 	Commit   func() error
 	Rollback func() error
 }
 
 type experienceRepository struct {
+	q   sqlx.ExtContext
+	log *logrus.Logger
+}
+
+type educationRepository struct {
 	q   sqlx.ExtContext
 	log *logrus.Logger
 }

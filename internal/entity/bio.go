@@ -15,3 +15,16 @@ type Experience struct {
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
 }
+
+type Education struct {
+	ID                string    `db:"id"`
+	Image             string    `db:"image"`
+	UserID            string    `db:"user_id"`
+	TitleDegree       string    `db:"title_degree"`
+	InstitutionalName string    `db:"institutional_name"`
+	StartDate         string    `db:"start_date"`
+	EndDate           string    `db:"end_date"`
+	Description       string    `db:"description"`
+	CreatedAt         time.Time `db:"created_at"`
+	UpdatedAt         time.Time `db:"updated_at"`
+}
