@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"golang.org/x/net/context"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
@@ -20,6 +21,8 @@ var (
 	logger *logrus.Logger
 	once   sync.Once
 )
+
+const RequestIDKey = "request_id"
 
 type Fields = logrus.Fields
 
@@ -48,8 +51,8 @@ func NewLogger() *logrus.Logger {
 				Filename:   fmt.Sprintf("./storage/logs/app-%s.log", time.Now().Format("2006-01-02")),
 				LocalTime:  true,
 				Compress:   true,
-				MaxSize:    100, // megabytes
-				MaxAge:     7,   // days
+				MaxSize:    100,
+				MaxAge:     7,
 				MaxBackups: 3,
 			}
 			writers = append(writers, fileWriter)
@@ -94,18 +97,26 @@ func Error(fields Fields, msg string) {
 	logger.WithFields(fields).Error(msg)
 }
 
-// ErrorWithTraceID logs an error and returns a trace ID for tracking purposes
-func ErrorWithTraceID(fields Fields, msg string) uuid.UUID {
-	traceID, err := uuid.NewRandom()
-	if err != nil {
-		Error(Fields{
-			"error": err.Error(),
-		}, "[log.ErrorWithTraceID] failed to generate trace ID")
+func ErrorWithTraceID(fields Fields, msg string) string {
+	var traceID string
+	if reqID, ok := fields["request_id"]; ok && reqID != "" {
+		traceID = reqID.(string)
+	} else {
+		uuid, err := uuid.NewRandom()
+		if err != nil {
+			Error(Fields{
+				"error": err.Error(),
+			}, "[log.ErrorWithTraceID] failed to generate trace ID")
+			traceID = "unknown"
+		} else {
+			traceID = uuid.String()
+		}
 	}
 
 	if fields == nil {
 		fields = Fields{}
 	}
+
 	fields["trace_id"] = traceID
 	logger.WithFields(fields).Error(msg)
 
@@ -126,4 +137,15 @@ func Panic(fields Fields, msg string) {
 		fields = Fields{}
 	}
 	logger.WithFields(fields).Panic(msg)
+}
+
+func WithRequestID(ctx context.Context) *logrus.Entry {
+	requestID := "unknown"
+	if ctx != nil {
+		if id, ok := ctx.Value(RequestIDKey).(string); ok && id != "" {
+			requestID = id
+		}
+	}
+
+	return logger.WithField("request_id", requestID)
 }

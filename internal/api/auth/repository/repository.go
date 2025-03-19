@@ -28,10 +28,6 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 	var db sqlx.ExtContext
 	var commitFunc, rollbackFunc func() error
 
-	r.log.WithFields(logrus.Fields{
-		"transaction": tx,
-	}).Debug("Creating new repository client")
-
 	db = r.DB
 
 	if tx {
@@ -54,7 +50,9 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 	}
 
 	return Client{
-		Users: &userRepository{q: db, log: r.log},
+		User:    &userRepository{q: db, log: r.log},
+		Company: &companyRepository{q: db, log: r.log},
+
 		Commit: func() error {
 			if tx {
 				r.log.Debug("Committing transaction")
@@ -71,7 +69,7 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 }
 
 type Client struct {
-	Users interface {
+	User interface {
 		CreateUser(c context.Context, user entity.User) error
 		GetUserByID(c context.Context, id string) (entity.User, error)
 		GetUserByEmail(c context.Context, email string) (entity.User, error)
@@ -81,11 +79,26 @@ type Client struct {
 		HardDeleteExpiredUsers(c context.Context, threshold time.Time) error
 	}
 
+	Company interface {
+		CreateCompany(c context.Context, company entity.Company) error
+		CheckEmailExists(c context.Context, email string) (bool, error)
+		GetCompanyByEmail(c context.Context, email string) (entity.Company, error)
+		GetCompanyByID(c context.Context, id string) (entity.Company, error)
+		UpdateCompany(c context.Context, company entity.Company) error
+		SoftDeleteCompany(c context.Context, id string, deletedAt time.Time) error
+		HardDeleteExpiredCompanies(c context.Context, threshold time.Time) error
+	}
+
 	Commit   func() error
 	Rollback func() error
 }
 
 type userRepository struct {
+	q   sqlx.ExtContext
+	log *logrus.Logger
+}
+
+type companyRepository struct {
 	q   sqlx.ExtContext
 	log *logrus.Logger
 }

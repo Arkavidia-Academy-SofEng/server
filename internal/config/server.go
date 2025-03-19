@@ -6,8 +6,10 @@ import (
 	authRepository "ProjectGolang/internal/api/auth/repository"
 	authService "ProjectGolang/internal/api/auth/service"
 	"ProjectGolang/internal/middleware"
+	"ProjectGolang/pkg/redis"
 	"ProjectGolang/pkg/s3"
 	"ProjectGolang/pkg/scheduler"
+	"ProjectGolang/pkg/smtp"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -24,6 +26,8 @@ type Server struct {
 	middleware middleware.Middleware
 	validator  *validator.Validate
 	s3         s3.ItfS3
+	smtp       smtp.ItfSmtp
+	redis      redis.ItfRedis
 	scheduler  *scheduler.Scheduler
 	handlers   []handler
 }
@@ -52,6 +56,8 @@ func NewServer(fiberApp *fiber.App, log *logrus.Logger, validator *validator.Val
 		validator:  validator,
 		middleware: middleware.New(log),
 		s3:         objectDB,
+		smtp:       smtp.New(),
+		redis:      redis.New(),
 	}
 
 	return bootstrap, nil
@@ -60,7 +66,7 @@ func NewServer(fiberApp *fiber.App, log *logrus.Logger, validator *validator.Val
 func (s *Server) RegisterHandler() {
 	//Auth Domain
 	authRepo := authRepository.New(s.DB, s.log)
-	authServices := authService.New(authRepo, s.log)
+	authServices := authService.New(authRepo, s.log, s.smtp, s.redis, s.s3)
 	authHandlers := authHandler.New(authServices, s.validator, s.middleware, s.log)
 	timeScheduler := scheduler.NewScheduler(authRepo, s.log)
 
@@ -68,14 +74,15 @@ func (s *Server) RegisterHandler() {
 
 	timeScheduler.Start()
 	s.scheduler = timeScheduler
-	s.log.Info("Scheduler started successfully")
 	s.checkHealth()
 	s.handlers = append(s.handlers, authHandlers)
 }
 
 func (s *Server) Run() error {
 	s.engine.Use(cors.New())
-	s.engine.Use(s.middleware.NewLoggingMiddleware)
+	s.engine.Use(s.middleware.NewRequestIDMiddleware())
+	s.engine.Use(middleware.LoggerConfig())
+
 	router := s.engine.Group("/api/v1")
 
 	for _, h := range s.handlers {
@@ -105,13 +112,11 @@ func (s *Server) checkHealth() {
 }
 
 func (s *Server) Shutdown() {
-	// Stop the scheduler
 	if s.scheduler != nil {
 		s.scheduler.Stop()
 		s.log.Info("Scheduler stopped")
 	}
 
-	// Close database connections
 	if s.DB != nil {
 		err := s.DB.Close()
 		if err != nil {
@@ -121,7 +126,6 @@ func (s *Server) Shutdown() {
 		s.log.Info("Database connection closed")
 	}
 
-	// Shutdown fiber app
 	if s.engine != nil {
 		err := s.engine.Shutdown()
 		if err != nil {

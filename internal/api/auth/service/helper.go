@@ -1,11 +1,11 @@
 package authService
 
 import (
-	"ProjectGolang/internal/api/auth"
 	"ProjectGolang/internal/entity"
-	"ProjectGolang/pkg/bcrypt"
 	"crypto/rand"
+	"fmt"
 	"github.com/oklog/ulid/v2"
+	"math/big"
 	"time"
 )
 
@@ -21,29 +21,53 @@ func NewUlidFromTimestamp(time time.Time) (string, error) {
 	return id.String(), nil
 }
 
-func GetUserDifferenceData(DbUser entity.User, NewUser auth.UpdateUserRequest) (entity.User, error) {
-	var result entity.User
-	result.ID = DbUser.ID
+//
+//func GetUserDifferenceData(DbUser entity.User, NewUser auth.UpdateUserRequest) (entity.User, error) {
+//	var result entity.User
+//	result.ID = DbUser.ID
+//
+//	if NewUser.Username != "" && NewUser.Username != DbUser.Username {
+//		result.Username = NewUser.Username
+//	}
+//
+//	if NewUser.Password != "" {
+//		hashedPass, err := bcrypt.HashPassword(NewUser.Password)
+//		if err != nil {
+//			return entity.User{}, err
+//		}
+//		result.Password = hashedPass
+//	}
+//
+//	return result, nil
+//}
+//
 
-	if NewUser.Username != "" && NewUser.Username != DbUser.Username {
-		result.Username = NewUser.Username
+func makeUserData(user entity.User) map[string]interface{} {
+	return map[string]interface{}{
+		"id":         user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"role":       user.Role,
+		"is_premium": user.IsPremium,
 	}
-
-	if NewUser.Password != "" {
-		hashedPass, err := bcrypt.HashPassword(NewUser.Password)
-		if err != nil {
-			return entity.User{}, err
-		}
-		result.Password = hashedPass
-	}
-
-	return result, nil
 }
 
-func MakeUserData(user entity.User) map[string]interface{} {
-	return map[string]interface{}{
-		"id":       user.ID,
-		"email":    user.Email,
-		"username": user.Username,
+func generateOTP(length int) (string, error) {
+	if length <= 0 {
+		return "", fmt.Errorf("OTP length must be greater than 0")
 	}
+
+	var otp string
+
+	for i := 0; i < length; i++ {
+		// Generate a random number between 0-9
+		num, err := rand.Int(rand.Reader, big.NewInt(10))
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random number: %v", err)
+		}
+
+		otp += fmt.Sprintf("%d", num)
+	}
+
+	return otp, nil
 }

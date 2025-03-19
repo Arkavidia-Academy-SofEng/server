@@ -47,7 +47,7 @@ func (s *Scheduler) cleanupSoftDeletedUsers() {
 		return
 	}
 
-	err = repo.Users.HardDeleteExpiredUsers(ctx, threshold)
+	err = repo.User.HardDeleteExpiredUsers(ctx, threshold)
 	if err != nil {
 		s.log.WithField("error", err.Error()).Error("Failed to hard delete expired users")
 		return

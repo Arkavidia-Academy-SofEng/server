@@ -2,46 +2,52 @@ package middleware
 
 import (
 	"ProjectGolang/pkg/log"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 )
 
-// LoggerConfig creates a Fiber middleware for structured request logging
 func LoggerConfig() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
-		path := c.Path()
-		method := c.Method()
 
-		// Process request
+		requestID, ok := c.Locals("X-Request-ID").(string)
+		if !ok || requestID == "" {
+			requestID = "unknown"
+		}
+
+		c.Locals("request_id", requestID)
+
 		err := c.Next()
 
-		// Calculate latency
 		latency := time.Since(start)
 		status := c.Response().StatusCode()
 
-		// Determine log level based on status code
+		if err != nil && status == fiber.StatusInternalServerError {
+			return err
+		}
+
 		logFields := log.Fields{
-			"method":     method,
-			"path":       path,
-			"status":     status,
-			"latency_ms": latency.Milliseconds(),
-			"ip":         c.IP(),
-			"host":       c.Hostname(),
-			"user_agent": c.Get("User-Agent"),
-			"referer":    c.Get("Referer"),
+			"request_id":    requestID,
+			"method":        c.Method(),
+			"path":          c.Path(),
+			"status":        status,
+			"latency_ms":    latency.Milliseconds(),
+			"ip":            c.IP(),
+			"host":          c.Hostname(),
+			"user_agent":    c.Get("User-Agent"),
+			"referer":       c.Get("Referer"),
+			"response_size": len(c.Response().Body()),
 		}
 
-		// Get request body if available
 		if c.Request().Body() != nil && len(c.Request().Body()) > 0 {
-			// Only log request body for non-file uploads or sensitive routes
-			// You might want to filter out sensitive routes
-			logFields["request_body"] = string(c.Request().Body())
+			sanitizedBody := sanitizeRequestBody(c.Path(), string(c.Request().Body()))
+			logFields["request_body"] = sanitizedBody
 		}
 
-		// Log based on status code
 		if status >= 500 {
 			log.Error(logFields, "Server error")
 		} else if status >= 400 {
@@ -54,37 +60,47 @@ func LoggerConfig() fiber.Handler {
 	}
 }
 
-// For use with the existing middleware interface
-func newLoggingMiddleware(logger *logrus.Logger) *loggingMiddleware {
-	return &loggingMiddleware{
-		logger: logger,
+func sanitizeRequestBody(path string, body string) string {
+	var jsonBody map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &jsonBody); err != nil {
+		return "[non-JSON body]"
 	}
+
+	sensitiveFields := []string{
+		"password", "token", "secret", "key", "auth",
+		"credential", "authorization", "pin", "security_question",
+		"security_answer", "credit_card", "card_number", "cvv",
+		"ssn", "social_security", "passport", "license",
+	}
+
+	if strings.Contains(path, "/users") || strings.Contains(path, "/auth") {
+		sensitiveFields = append(sensitiveFields, "password_confirmation", "old_password", "new_password")
+	}
+
+	for _, field := range sensitiveFields {
+		if _, exists := jsonBody[field]; exists {
+			jsonBody[field] = "[SECRET]"
+		}
+	}
+
+	sanitized, err := json.Marshal(jsonBody)
+	if err != nil {
+		return "[sanitization-failed]"
+	}
+
+	return string(sanitized)
 }
 
 type loggingMiddleware struct {
 	logger *logrus.Logger
 }
 
+func newLoggingMiddleware(logger *logrus.Logger) *loggingMiddleware {
+	return &loggingMiddleware{
+		logger: logger,
+	}
+}
+
 func (m *middleware) NewLoggingMiddleware(ctx *fiber.Ctx) error {
-	start := time.Now()
-
-	// Process request
-	err := ctx.Next()
-
-	// Calculate request processing time
-	latency := time.Since(start)
-
-	// Log request details
-	m.log.WithFields(logrus.Fields{
-		"client_ip":     ctx.IP(),
-		"method":        ctx.Method(),
-		"path":          ctx.Path(),
-		"status":        ctx.Response().StatusCode(),
-		"latency_ms":    latency.Milliseconds(),
-		"request_body":  string(ctx.Request().Body()),
-		"response_size": len(ctx.Response().Body()),
-		"user_agent":    ctx.Get("User-Agent"),
-	}).Info("HTTP Request")
-
-	return err
+	return ctx.Next()
 }

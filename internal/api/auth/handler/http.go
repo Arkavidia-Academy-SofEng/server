@@ -25,7 +25,12 @@ func New(as authService.AuthService, validate *validator.Validate, middleware mi
 }
 func (h *AuthHandler) Start(srv fiber.Router) {
 	users := srv.Group("/users")
+	users.Post("/otp", h.RequestOTP)
 	users.Post("/", h.CreateUser)
 	users.Post("/login", h.Login)
-	users.Put("/:id", h.UpdateUser)
+	users.Put("/:id", h.middleware.NewTokenMiddleware, h.UpdateUser)
+
+	companies := srv.Group("/companies")
+	companies.Put("/:id", h.middleware.NewTokenMiddleware, h.UpdateCompany)
+
 }

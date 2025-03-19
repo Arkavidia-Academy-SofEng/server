@@ -13,22 +13,27 @@ const (
 )
 
 type User struct {
-	ID             string
-	Email          string
-	Password       string
-	Name           string
-	Role           UserRole
-	ProfilePicture string
-	IsPremium      bool
-	PremiumUntil   time.Time
-	Headline       string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      *time.Time
+	ID             string     `db:"id"`
+	Email          string     `db:"email"`
+	Password       string     `db:"password"`
+	Name           string     `db:"name"`
+	Role           UserRole   `db:"role"`
+	ProfilePicture string     `db:"profile_picture"`
+	BannerPicture  string     `db:"banner_picture"`
+	PhoneNumber    string     `db:"phone_number"`
+	IsPremium      bool       `db:"is_premium"`
+	PremiumUntil   time.Time  `db:"premium_until"`
+	Location       string     `db:"location"`
+	Headline       string     `db:"headline"`
+	CreatedAt      time.Time  `db:"created_at"`
+	UpdatedAt      time.Time  `db:"updated_at"`
+	DeletedAt      *time.Time `db:"deleted_at"`
 }
 
 type UserLoginData struct {
-	ID       string
-	Username string
-	Email    string
+	ID        string
+	Name      string
+	Email     string
+	Role      UserRole
+	IsPremium bool
 }

@@ -1,11 +1,13 @@
 package auth
 
 import (
-	"fmt"
+	"ProjectGolang/pkg/response"
+	"github.com/gofiber/fiber/v2"
 )
 
 var (
-	ErrorEmailAlreadyExists = fmt.Errorf("email already exists")
-	ErrorInvalidCredentials = fmt.Errorf("invalid email or password")
-	ErrorUserNotFound       = fmt.Errorf("user not found")
+	ErrorEmailAlreadyExists = response.New(fiber.StatusBadRequest, "email already exists")
+	ErrorInvalidCredentials = response.New(fiber.StatusBadRequest, "invalid credentials")
+	ErrorUserNotFound       = response.New(fiber.StatusNotFound, "user not found")
+	ErrorInvalidOTP         = response.New(fiber.StatusBadRequest, "invalid otp")
 )

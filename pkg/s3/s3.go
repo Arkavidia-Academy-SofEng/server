@@ -15,12 +15,14 @@ import (
 )
 
 type ItfS3 interface {
-	UploadFile(session *session.Session, file *multipart.FileHeader, fileName string) (string, error)
-	PresignUrl(client *s3.S3, fileName string) (string, error)
+	UploadFile(file *multipart.FileHeader, fileName string) (string, error)
+	PresignUrl(fileName string) (string, error)
+	DeleteFile(fileName string) error
 }
 
 type s3Client struct {
 	client     *s3.S3
+	session    *session.Session
 	bucketName string
 }
 
@@ -30,11 +32,15 @@ func New() (ItfS3, error) {
 		return nil, err
 	}
 
-	return &s3Client{client: s3.New(sess), bucketName: os.Getenv("AWS_BUCKET_NAME")}, nil
+	return &s3Client{
+		client:     s3.New(sess),
+		session:    sess,
+		bucketName: os.Getenv("AWS_BUCKET_NAME"),
+	}, nil
 }
 
-func (s *s3Client) UploadFile(session *session.Session, file *multipart.FileHeader, fileName string) (string, error) {
-	uploader := s3manager.NewUploader(session)
+func (s *s3Client) UploadFile(file *multipart.FileHeader, fileName string) (string, error) {
+	uploader := s3manager.NewUploader(s.session)
 
 	uniqueFileName, err := generateUniqueFileName(fileName)
 	if err != nil {
@@ -65,8 +71,8 @@ func (s *s3Client) UploadFile(session *session.Session, file *multipart.FileHead
 	return uploadOutput.Location, nil
 }
 
-func (s *s3Client) PresignUrl(client *s3.S3, fileName string) (string, error) {
-	req, _ := client.GetObjectRequest(&s3.GetObjectInput{
+func (s *s3Client) PresignUrl(fileName string) (string, error) {
+	req, _ := s.client.GetObjectRequest(&s3.GetObjectInput{
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(fileName),
 	})
@@ -79,8 +85,8 @@ func (s *s3Client) PresignUrl(client *s3.S3, fileName string) (string, error) {
 	return urlStr, nil
 }
 
-func (s *s3Client) DeleteFile(client *s3.S3, fileName string) error {
-	_, err := client.DeleteObject(&s3.DeleteObjectInput{
+func (s *s3Client) DeleteFile(fileName string) error {
+	_, err := s.client.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(fileName),
 	})

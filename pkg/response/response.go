@@ -1,7 +1,6 @@
 package response
 
 import (
-	"fmt"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,11 +15,6 @@ func (e *Error) Error() string {
 
 func New(code int, err string) error {
 	return &Error{Code: code, Err: err}
-}
-
-func CustomInternalError(str string, errorStr error) error {
-	strError := fmt.Sprintf("Internal Server in: %v, Error: %v", str, errorStr)
-	return New(fiber.StatusInternalServerError, strError)
 }
 
 var (

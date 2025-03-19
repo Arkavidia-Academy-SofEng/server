@@ -21,7 +21,7 @@ func Sign(Data map[string]interface{}, ExpiredAt time.Duration) (string, time.Ti
 	}
 
 	claims := jwt.MapClaims{}
-	claims["exp"] = expiredAt
+	claims["exp"] = expiredAt.Unix()
 	claims["authorization"] = true
 
 	for i, v := range Data {
