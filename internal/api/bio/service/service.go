@@ -34,6 +34,12 @@ type BioService interface {
 	GetEducationsByUserID(ctx context.Context, userID string) ([]entity.Education, error)
 	UpdateEducation(ctx context.Context, req bio.UpdateEducation, id string, image *multipart.FileHeader) error
 	DeleteEducation(ctx context.Context, id string) error
+
+	CreatePortfolio(ctx context.Context, req bio.CreatePortfolio, userID string, image *multipart.FileHeader, descriptionImage *multipart.FileHeader) error
+	GetPortfolioByID(ctx context.Context, id string) (entity.Portfolio, error)
+	GetPortfoliosByUserID(ctx context.Context, userID string) ([]entity.Portfolio, error)
+	UpdatePortfolio(ctx context.Context, req bio.UpdatePortfolio, id string, image *multipart.FileHeader, descriptionImage *multipart.FileHeader) error
+	DeletePortfolio(ctx context.Context, id string) error
 }
 
 func New(authRepo authRepository.Repository, bioRepo bioRepository.Repository,

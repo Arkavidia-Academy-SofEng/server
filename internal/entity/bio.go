@@ -28,3 +28,18 @@ type Education struct {
 	CreatedAt         time.Time `db:"created_at"`
 	UpdatedAt         time.Time `db:"updated_at"`
 }
+
+type Portfolio struct {
+	ID               string    `db:"id"`
+	UserID           string    `db:"user_id"`
+	Image            string    `db:"image"`
+	ProjectName      string    `db:"project_name"`
+	ProjectLocation  string    `db:"project_location"`
+	DescriptionImage string    `db:"description_image"`
+	ProjectLink      string    `db:"project_link"`
+	StartDate        string    `db:"start_date"`
+	EndDate          string    `db:"end_date"`
+	Description      string    `db:"description"`
+	CreatedAt        time.Time `db:"created_at"`
+	UpdatedAt        time.Time `db:"updated_at"`
+}

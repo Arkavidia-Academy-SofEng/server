@@ -41,4 +41,13 @@ func (h *BioHandler) Start(srv fiber.Router) {
 	userEducations := srv.Group("/users/:userId/educations")
 	userEducations.Post("/", h.middleware.NewTokenMiddleware, h.CreateEducation)
 	userEducations.Get("/", h.GetEducationsByUserID)
+
+	portfolios := srv.Group("/portfolios")
+	portfolios.Get("/:id", h.GetPortfolioByID)
+	portfolios.Put("/:id", h.middleware.NewTokenMiddleware, h.UpdatePortfolio)
+	portfolios.Delete("/:id", h.middleware.NewTokenMiddleware, h.DeletePortfolio)
+
+	userPortfolios := srv.Group("/users/:userId/portfolios")
+	userPortfolios.Post("/", h.middleware.NewTokenMiddleware, h.CreatePortfolio)
+	userPortfolios.Get("/", h.GetPortfoliosByUserID)
 }

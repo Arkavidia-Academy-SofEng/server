@@ -66,3 +66,40 @@ type UpdateEducation struct {
 	EndDate           string `form:"end_date"`
 	Description       string `form:"description"`
 }
+
+type CreatePortfolio struct {
+	Image            string `form:"image"`
+	ProjectName      string `form:"project_name" validate:"required"`
+	ProjectLocation  string `form:"project_location" validate:"required"`
+	DescriptionImage string `form:"description_image"`
+	ProjectLink      string `form:"project_link"`
+	StartDate        string `form:"start_date" validate:"required"`
+	EndDate          string `form:"end_date"`
+	Description      string `form:"description"`
+}
+
+type PortfolioDB struct {
+	ID               sql.NullString `db:"id"`
+	UserID           sql.NullString `db:"user_id"`
+	Image            sql.NullString `db:"image"`
+	ProjectName      sql.NullString `db:"project_name"`
+	ProjectLocation  sql.NullString `db:"project_location"`
+	DescriptionImage sql.NullString `db:"description_image"`
+	ProjectLink      sql.NullString `db:"project_link"`
+	StartDate        sql.NullString `db:"start_date"`
+	EndDate          sql.NullString `db:"end_date"`
+	Description      sql.NullString `db:"description"`
+	CreatedAt        sql.NullTime   `db:"created_at"`
+	UpdatedAt        sql.NullTime   `db:"updated_at"`
+}
+
+type UpdatePortfolio struct {
+	Image            string `form:"image"`
+	ProjectName      string `form:"project_name"`
+	ProjectLocation  string `form:"project_location"`
+	DescriptionImage string `form:"description_image"`
+	ProjectLink      string `form:"project_link"`
+	StartDate        string `form:"start_date"`
+	EndDate          string `form:"end_date"`
+	Description      string `form:"description"`
+}

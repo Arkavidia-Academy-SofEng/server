@@ -48,9 +48,10 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 		rollbackFunc = func() error { return nil }
 	}
 
-	return Client{
+	client := Client{
 		Experience: &experienceRepository{q: db, log: r.log},
 		Education:  &educationRepository{q: db, log: r.log},
+		Portfolio:  &portfolioRepository{q: db, log: r.log},
 
 		Commit: func() error {
 			if tx {
@@ -64,7 +65,8 @@ func (r *repository) NewClient(tx bool) (Client, error) {
 			}
 			return rollbackFunc()
 		},
-	}, nil
+	}
+	return client, nil
 }
 
 type Client struct {
@@ -86,6 +88,15 @@ type Client struct {
 		DeleteEducationsByUserID(ctx context.Context, userID string) error
 	}
 
+	Portfolio interface {
+		CreatePortfolio(ctx context.Context, portfolio entity.Portfolio) error
+		GetPortfolioByID(ctx context.Context, id string) (entity.Portfolio, error)
+		GetPortfoliosByUserID(ctx context.Context, userID string) ([]entity.Portfolio, error)
+		UpdatePortfolio(ctx context.Context, portfolio entity.Portfolio) error
+		DeletePortfolio(ctx context.Context, id string) error
+		DeletePortfoliosByUserID(ctx context.Context, userID string) error
+	}
+
 	Commit   func() error
 	Rollback func() error
 }
@@ -96,6 +107,11 @@ type experienceRepository struct {
 }
 
 type educationRepository struct {
+	q   sqlx.ExtContext
+	log *logrus.Logger
+}
+
+type portfolioRepository struct {
 	q   sqlx.ExtContext
 	log *logrus.Logger
 }
